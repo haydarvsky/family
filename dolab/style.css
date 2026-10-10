@@ -147,3 +147,10 @@ button.danger { color: #B2401C; border: 1px solid #E8B9A8; border-radius: 13px; 
   .stickybox { top: 60px; align-self: start; }
   .panel { margin: 10px 8px 0 12px; align-self: start; max-height: calc(100vh - 80px); overflow-y: auto; position: sticky; top: 64px; }
 }
+
+/* جانب العنصر في خانة الزاوية */
+.sides { display: inline-flex; gap: 3px; flex-wrap: wrap; width: 100%; }
+.sides button { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 3px 8px; font-size: 13px; font-weight: 700; color: var(--ink2); }
+.sides button.on { background: var(--acc2); border-color: var(--acc2); color: #fff; }
+.part.p3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.part.p3 .pn, .part.p3 .dw { grid-column: 1 / 4; }

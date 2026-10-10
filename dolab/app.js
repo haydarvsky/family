@@ -1,10 +1,11 @@
 /* مخطط الدولاب — تقسيم داخلي تفاعلي يُصدَّر صورةً وPDF */
 'use strict';
 
-const VER = 3;
-const LS_KEY = 'dolab_v3';
+const VER = 4;
+const LS_KEY = 'dolab_v4';
 const PT = 1.8;            // سماكة اللوح (سم)
 const GAPC = 8;            // فراغ رمزي للركن في الرسم الممدود
+const FCORNER = 5;         // حشوة الزاوية الافتراضية (تمنع تصادم البابين)
 const INK = '#17343A', INK2 = '#5B6E72', ACC = '#E8753F', ACC2 = '#2F7F86';
 const WOOD = '#C9AE84', WOOD_L = '#E3D2B4';
 const FONT = "'Sakkal', 'Geeza Pro', Tahoma, sans-serif";
@@ -40,11 +41,13 @@ const RAINBOW = ['#E25D4B', '#F2A73B', '#E9C82F', '#5BB672', '#4A90D9', '#8A63C9
 const it = (t, h, l, x) => Object.assign({ t, h: h == null ? TYPES[t].h : h, l: l || '' }, x || {});
 const fill = (t, l, k) => it(t, TYPES[t].h, l, k ? { f: 1, k } : { f: 1 });
 const drawers = (n, h) => Array.from({ length: n }, () => it('drawer', h || 20));
+const sd = (side, x) => Object.assign(x, { side });   // R خلف باب الجزء الأيمن، L خلف باب الجزء الأيسر (في خانة الزاوية)
 
 const QUICK = [
   { n: 'تعليق مزدوج', items: () => [it('drawer', 20), it('rail', 66, 'تعليق في متناوله'), fill('rail', 'تعليق علوي')] },
   { n: 'أدراج ورفوف', items: () => [it('shoe', 20), ...drawers(3), fill('shelves', 'مطويّات', 4)] },
   { n: 'تعليق طويل', items: () => [it('shoeshelf', 36), fill('long', '')] },
+  { n: 'زاوية: أدراج + تعليق L', items: () => [sd('L', it('shoe', 18)), sd('L', it('drawer', 18)), sd('L', it('drawer', 18)), sd('L', it('socks', 12)), sd('R', it('hamper', 46)), sd('R', it('bin', 20, 'حقيبة')), fill('long', 'تعليق L حول الزاوية')] },
   { n: 'عمود صغائر', items: () => [it('hamper', 45), it('drawer', 15, 'داخلية'), it('socks', 12), fill('shelves', '', 5)] },
   { n: 'علّاقة سحب', items: () => [it('shoe', 18), it('socks', 12), it('pull', 60), fill('shelves', '', 3)] },
   { n: 'ألعاب', items: () => [it('toys', 45), it('toys', 40), fill('shelves', 'كتب', 3)] },
@@ -52,55 +55,39 @@ const QUICK = [
 ];
 
 // ───── القوالب ─────
-const L_PARTS = () => [{ name: 'الجزء الأول', w: 150, n: 3 }, { name: 'الجزء الثاني', w: 200, n: 4 }];
+const L_PARTS = () => [{ name: 'الجزء الأول', w: 150, n: 1, dw: 50 }, { name: 'الجزء الثاني', w: 200, n: 2, dw: 50 }];
 const BASE = (o) => Object.assign({ v: VER, name: 'دولاب الأطفال', H: 240, plinth: 10, loft: 40, depth: 80, corner: true, scheme: 0, parts: L_PARTS() }, o);
 const sec = (a, b, items, loft) => ({ a, b, items, loft: loft || '' });
 
 const PRESETS = [
-  { g: 'دولاب أطفال زاوية L (150 + 200، أبواب 50)', n: 'المتوازن', d: 'لطفل واحد من 4 إلى 10 سنوات: اليوميّ تحت 110 سم، والطويل حول الركن المفتوح من الداخل.', make: () => BASE({ secs: [
-    sec(0, 0, [it('shoe', 18), it('drawer', 18, 'بناطيل'), it('drawer', 18, 'تيشيرتات'), it('socks', 12), fill('shelves', 'ملابس مطويّة', 4)], 'موسمي'),
-    sec(1, 1, [it('drawer', 20), it('rail', 66, 'تعليق في متناوله'), fill('rail', 'تعليق علوي')], 'مقاسات قادمة'),
-    sec(2, 3, [it('shoeshelf', 36, 'أحذية المناسبات'), fill('long', 'دشاديش وفساتين وجاكيتات')], 'حقائب سفر'),
-    sec(4, 4, [it('toys', 42, 'صندوق ألعاب'), it('rail', 66, 'ملابس اليوم'), fill('shelves', 'بطانيات', 2)], 'ألعاب مخزّنة'),
-    sec(5, 5, [it('drawer', 18), it('drawer', 18), it('drawer', 18, 'بيجامات'), it('drawer', 14, 'داخلية'), fill('shelves', 'مطويّات', 3)], 'أغطية الشتاء'),
-    sec(6, 6, [it('hamper', 50), it('hooks', 42, 'حقيبة المدرسة'), fill('shelves', 'كتب وأغراض', 3)], 'موسمي'),
+  { g: 'دولاب أطفال زاوية L (جدار 150 + جدار 200)', n: 'المتوازن', d: 'أدراج خلف كل باب، وتعليق L حول الزاوية المفتوحة، والباب 3 لملابس اليوم.', make: () => BASE({ secs: [
+    sec(0, 1, [sd('L', it('shoe', 18)), sd('L', it('drawer', 18, 'بيجامات')), sd('L', it('drawer', 16, 'داخلية')), sd('L', it('socks', 12)),
+               sd('R', it('hamper', 46)), sd('R', it('bin', 24, 'حقيبة المدرسة')), fill('long', 'تعليق L حول الزاوية')], 'حقائب سفر'),
+    sec(2, 2, [it('drawer', 20, 'بناطيل'), it('drawer', 20, 'تيشيرتات'), it('rail', 66, 'ملابس اليوم'), fill('shelves', 'مطويّات', 2)], 'موسمي'),
   ] }) },
-  { g: 'دولاب أطفال زاوية L (150 + 200، أبواب 50)', n: 'ينمو معه', d: 'لعمر 2–6: علّاقات منخفضة يرفعها الأهل مع العمر، وركن ألعاب.', make: () => BASE({ secs: [
-    sec(0, 0, [it('shoe', 16, 'جوتي يومي'), it('socks', 12), it('rail', 48, 'تعليق منخفض'), fill('shelves', 'رفوف تُنقل', 3)], 'مقاسات قادمة'),
-    sec(1, 1, [it('bin', 30, 'سلّتان بالصور'), it('rail', 48, 'تعليق منخفض'), fill('rail', 'مقاسات أكبر')], 'مقاسات قادمة'),
-    sec(2, 3, [it('toys', 36, 'ألعاب كبيرة'), it('toys', 38, 'ألعاب يومية'), fill('shelves', 'كتب وبطانيات', 3)], 'ألعاب بالتناوب'),
-    sec(4, 4, [it('drawer', 18, 'بناطيل'), it('drawer', 18, 'تيشيرتات'), it('drawer', 18, 'بيجامات'), it('drawer', 14, 'داخلية'), fill('shelves', 'للأهل', 3)], 'موسمي'),
-    sec(5, 5, [it('shoeshelf', 38, 'أحذية سحّاب'), it('rail', 50), fill('rail', 'تعليق علوي')], 'موسمي'),
-    sec(6, 6, [it('hamper', 32), it('hooks', 40, 'خطافات منخفضة'), fill('shelves', '', 3)], 'ذكريات'),
+  { g: 'دولاب أطفال زاوية L (جدار 150 + جدار 200)', n: 'ينمو معه', d: 'لعمر 2–6: كل ما يحتاجه الطفل تحت 90 سم، والمقاسات الأكبر على تعليق الزاوية.', make: () => BASE({ secs: [
+    sec(0, 1, [sd('L', it('drawer', 18, 'بناطيل')), sd('L', it('drawer', 18, 'تيشيرتات')), sd('L', it('drawer', 18, 'بيجامات')), sd('L', it('drawer', 14, 'داخلية')),
+               sd('R', it('toys', 34, 'ألعاب كبيرة')), sd('R', it('toys', 34, 'ألعاب يومية')), fill('long', 'مقاسات أكبر تنتظر')], 'ألعاب بالتناوب'),
+    sec(2, 2, [it('shoe', 16, 'جوتي يومي'), it('socks', 12), it('rail', 48, 'تعليق منخفض'), fill('shelves', 'رفوف تُنقل', 3)], 'مقاسات قادمة'),
   ] }) },
-  { g: 'دولاب أطفال زاوية L (150 + 200، أبواب 50)', n: 'طفلان', d: 'البابان 1 و2 للأصغر، و5–7 للأكبر، والركن مشترك للمناسبات.', make: () => BASE({ name: 'دولاب الطفلين', secs: [
-    sec(0, 0, [it('shoe', 18), it('socks', 12), it('drawer', 16, 'داخلية'), it('drawer', 16, 'بيجامات'), fill('shelves', 'مطويّات الأصغر', 4)], 'الأصغر'),
-    sec(1, 1, [it('drawer', 20), it('rail', 66, 'تعليق الأصغر'), fill('rail', 'تعليق علوي')], 'الأصغر'),
-    sec(2, 3, [it('shoeshelf', 30, 'أحذية المناسبات'), fill('long', 'تعليق طويل مشترك')], 'مشترك'),
-    sec(4, 4, [it('drawer', 20), it('rail', 88, 'تعليق الأكبر'), fill('rail', 'تعليق علوي')], 'الأكبر'),
-    sec(5, 5, [it('shoe', 20), it('drawer', 20, 'بناطيل'), it('drawer', 20, 'تيشيرتات'), it('drawer', 18, 'بيجامات'), it('socks', 12), fill('shelves', 'مطويّات الأكبر', 2)], 'الأكبر'),
-    sec(6, 6, [it('hamper', 52, 'سلة مشتركة'), fill('shelves', 'كتب', 4)], 'الأكبر'),
+  { g: 'دولاب أطفال زاوية L (جدار 150 + جدار 200)', n: 'طفلان', d: 'الباب 1 للأصغر، والبابان 2 و3 للأكبر، وتعليق الزاوية مشترك.', make: () => BASE({ name: 'دولاب الطفلين', secs: [
+    sec(0, 1, [sd('L', it('shoe', 18)), sd('L', it('drawer', 18, 'بناطيل')), sd('L', it('drawer', 18, 'تيشيرتات')), sd('L', it('socks', 12)),
+               sd('R', it('shoe', 18)), sd('R', it('socks', 12)), sd('R', it('drawer', 16, 'داخلية')), sd('R', it('drawer', 18, 'بيجامات')), fill('long', 'تعليق L مشترك')], 'مشترك'),
+    sec(2, 2, [it('drawer', 20), it('rail', 88, 'تعليق الأكبر'), fill('shelves', 'مطويّات', 2)], 'الأكبر'),
   ] }) },
-  { g: 'دولاب أطفال زاوية L (150 + 200، أبواب 50)', n: 'التخزين الأقصى', d: 'أدراج وصناديق ألعاب أكثر، وتعليق مركّز في خانة الباب 2.', make: () => BASE({ secs: [
-    sec(0, 0, [it('shoe', 18), it('drawer', 16), it('drawer', 16), it('socks', 12), fill('shelves', 'سلال قماش', 4)], 'موسمي'),
-    sec(1, 1, [it('drawer', 20), it('rail', 66), fill('rail', 'تعليق علوي')], 'مقاسات قادمة'),
-    sec(2, 3, [it('bin', 26, 'بطانيات'), it('toys', 32), it('toys', 32, 'ألعاب تركيب'), fill('shelves', 'كتب وموسمي', 3)], 'حقائب سفر'),
-    sec(4, 4, [it('shoe', 20), ...drawers(4, 18), it('socks', 12), fill('shelves', '', 2)], 'ألعاب مخزّنة'),
-    sec(5, 5, [it('toys', 40), it('toys', 40), fill('shelves', 'رفوف تخزين', 3)], 'أغطية'),
-    sec(6, 6, [it('hamper', 48), it('pull', 76, 'زي المدرسة'), fill('shelves', '', 2)], 'موسمي'),
+  { g: 'دولاب أطفال زاوية L (جدار 150 + جدار 200)', n: 'التخزين الأقصى', d: 'أدراج وألعاب خلف البابين، ورفوف L تملأ الزاوية، وعلّاقة سحب لزي المدرسة.', make: () => BASE({ secs: [
+    sec(0, 1, [sd('L', it('drawer', 20)), sd('L', it('drawer', 20)), sd('L', it('drawer', 20)),
+               sd('R', it('toys', 36)), sd('R', it('toys', 36, 'ألعاب تركيب')), fill('shelves', 'رفوف L', 3)], 'حقائب سفر'),
+    sec(2, 2, [it('shoe', 18), it('drawer', 16), it('drawer', 16), it('socks', 12), it('pull', 58, 'زي المدرسة'), fill('shelves', 'سلال', 2)], 'موسمي'),
   ] }) },
-  { g: 'دولاب أطفال زاوية L (150 + 200، أبواب 50)', n: 'الخليجي', d: 'دشاديش حول الركن، وعلّاقة نزّالة للمناسبات، وعمود للغتر والقحافي.', make: () => BASE({ secs: [
-    sec(0, 0, [it('shoe', 18, 'نعال'), it('socks', 12), it('drawer', 14, 'قحافي'), it('drawer', 14, 'فانيلات'), fill('shelves', 'غتر وأشمغة', 4)], 'موسمي'),
-    sec(1, 1, [...drawers(2, 18), it('gap', 12), fill('lift', 'دشاديش المناسبات')], 'بشوت'),
-    sec(2, 3, [it('shoeshelf', 24, 'أحذية وصنادل'), it('long', 118, 'دشاديش يومية'), fill('rail', 'جاكيتات الشتاء')], 'حقائب سفر'),
-    sec(4, 4, [it('shoe', 20, 'جوتي المدرسة'), ...drawers(3), fill('shelves', 'بيجامات', 3)], 'موسمي'),
-    sec(5, 5, [it('drawer', 20), it('rail', 66, 'ملابس يومية'), fill('rail', 'زي المدرسة')], 'أغطية'),
-    sec(6, 6, [it('hamper', 50), it('hooks', 42, 'عقال وحزام'), fill('shelves', '', 3)], 'موسمي'),
+  { g: 'دولاب أطفال زاوية L (جدار 150 + جدار 200)', n: 'الخليجي', d: 'الزاوية كلها دشاديش يومية بعمود L، والباب 3 لدشاديش المناسبات بعلّاقة نزّالة.', make: () => BASE({ secs: [
+    sec(0, 1, [it('shoeshelf', 22, 'أحذية وصنادل'), it('long', 116, 'دشاديش يومية'), fill('rail', 'جاكيتات الشتاء')], 'حقائب سفر'),
+    sec(2, 2, [it('shoe', 18, 'نعال'), it('socks', 12), it('drawer', 14, 'قحافي'), fill('lift', 'دشاديش المناسبات')], 'بشوت'),
   ] }) },
-  { g: 'هياكل فارغة', n: 'زاوية L فارغة', d: '150 بثلاثة أبواب + 200 بأربعة أبواب (كل باب 50)، كل باب خانة.', make: () => BASE({ secs: null }) },
-  { g: 'هياكل فارغة', n: 'مستقيم 200 — 4 أبواب', d: 'دولاب واحد بعرض 200 سم، أبواب 50.', make: () => BASE({ name: 'دولاب', corner: false, parts: [{ name: 'الدولاب', w: 200, n: 4 }], secs: null }) },
-  { g: 'هياكل فارغة', n: 'مستقيم 150 — 3 أبواب', d: 'دولاب واحد بعرض 150 سم، أبواب 50.', make: () => BASE({ name: 'دولاب', corner: false, parts: [{ name: 'الدولاب', w: 150, n: 3 }], secs: null }) },
-  { g: 'هياكل فارغة', n: 'مستقيم 250 — 5 أبواب بلا سندرة', d: 'أبواب 50 كاملة الارتفاع 230 سم.', make: () => BASE({ name: 'دولاب', loft: 0, corner: false, parts: [{ name: 'الدولاب', w: 250, n: 5 }], secs: null }) },
+  { g: 'هياكل فارغة', n: 'زاوية L فارغة', d: 'جدار 150 بباب + جدار 200 ببابين (أبواب 50)، والزاوية مفتوحة.', make: () => BASE({ secs: [sec(0, 1, []), sec(2, 2, [])] }) },
+  { g: 'هياكل فارغة', n: 'مستقيم 200 — 4 أبواب', d: 'دولاب واحد بعرض 200 سم، أبواب 50.', make: () => BASE({ name: 'دولاب', corner: false, parts: [{ name: 'الدولاب', w: 200, n: 4, dw: 50 }], secs: null }) },
+  { g: 'هياكل فارغة', n: 'مستقيم 150 — 3 أبواب', d: 'دولاب واحد بعرض 150 سم، أبواب 50.', make: () => BASE({ name: 'دولاب', corner: false, parts: [{ name: 'الدولاب', w: 150, n: 3, dw: 50 }], secs: null }) },
+  { g: 'هياكل فارغة', n: 'مستقيم 250 — 5 أبواب بلا سندرة', d: 'أبواب 50 كاملة الارتفاع 230 سم.', make: () => BASE({ name: 'دولاب', loft: 0, corner: false, parts: [{ name: 'الدولاب', w: 250, n: 5, dw: 50 }], secs: null }) },
 ];
 
 // ───── الحالة ─────
@@ -115,6 +102,14 @@ function singles(st) {
   return Array.from({ length: n }, (_, i) => sec(i, i, [], ''));
 }
 function normalize(st) {
+  if ((st.v || 0) < 4) {   // الإصدارات السابقة: الطول كان طول الواجهة
+    const last = st.parts.length - 1;
+    st.parts.forEach((p, pi) => {
+      if (!p.dw) p.dw = p.w / p.n;
+      if (st.corner && st.parts.length > 1) p.w += st.depth * ((pi > 0 ? 1 : 0) + (pi < last ? 1 : 0));
+    });
+  }
+  st.parts.forEach((p) => { if (!p.dw) p.dw = Math.round(p.w / p.n); });
   st.v = VER;
   if (!Array.isArray(st.secs) || !st.secs.length) st.secs = singles(st);
   st.secs.sort((x, y) => x.a - y.a);
@@ -130,38 +125,78 @@ function doUndo() {
 function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200); }
 
 // ───── الهندسة ─────
+// طول كل جزء مقيسٌ على الجدار؛ وفي الزاوية يشترك الجزآن في مربعٍ بعمق الدولاب، فالواجهة = الطول − العمق.
+// ما يتبقّى من الواجهة بعد الأبواب حشواتٌ ثابتة: 5 عند الزاوية والباقي عند الجدار.
+function partFill(st, pi) {
+  const p = st.parts[pi], last = st.parts.length - 1, isL = st.corner && st.parts.length > 1;
+  const cL = isL && pi < last, cR = isL && pi > 0;       // زاوية على يسار الجزء / يمينه (في الرسم)
+  const front = p.w - st.depth * ((cL ? 1 : 0) + (cR ? 1 : 0));
+  const left = front - p.n * p.dw;
+  let l, r;
+  if (left < 0) { l = r = 0; }
+  else if (cL && cR) { l = r = left / 2; }
+  else if (cL) { l = Math.min(FCORNER, left); r = left - l; }
+  else if (cR) { r = Math.min(FCORNER, left); l = left - r; }
+  else { l = r = left / 2; }
+  return { front, left, l, r, cL, cR };
+}
 function geo(st) {
   st = st || S;
   const gap = st.corner && st.parts.length > 1 ? GAPC : 0;
-  const totalW = st.parts.reduce((a, p) => a + p.w, 0) + gap * (st.parts.length - 1);
+  const pf = st.parts.map((_, pi) => partFill(st, pi));
+  const totalW = pf.reduce((a, f) => a + Math.max(f.front, 1), 0) + gap * (st.parts.length - 1);
   const doors = [], parts = [];
   let xr = totalW;
   st.parts.forEach((p, pi) => {
-    const dw = p.w / p.n;
-    parts.push({ x0: xr - p.w, x1: xr, pi, first: doors.length, last: doors.length + p.n - 1 });
-    for (let j = 0; j < p.n; j++) doors.push({ pi, j, x0: xr - (j + 1) * dw, x1: xr - j * dw, w: dw });
-    xr -= p.w + gap;
+    const f = pf[pi], front = Math.max(f.front, 1), x0 = xr - front;
+    parts.push({ x0, x1: xr, pi, first: doors.length, last: doors.length + p.n - 1, fl: f.l, fr: f.r, left: f.left });
+    for (let j = 0; j < p.n; j++) {
+      const d1 = xr - f.r - j * p.dw, d0 = d1 - p.dw;
+      doors.push({ pi, j, x0: d0, x1: d1, w: p.dw, z0: j === p.n - 1 ? x0 : d0, z1: j === 0 ? xr : d1 });
+    }
+    xr = x0 - gap;
   });
   const z0 = st.plinth + PT;
   const zt = st.H - (st.loft > 0 ? st.loft : 0);
   const z1 = zt - PT;
   return { gap, totalW, doors, parts, z0, z1, zt, inner: z1 - z0 };
 }
-function span(s, g) { const d0 = g.doors[s.b], d1 = g.doors[s.a]; return { x0: d0.x0, x1: d1.x1, cross: d0.pi !== d1.pi }; }
-function doorsW(s, g) { let w = 0; for (let i = s.a; i <= s.b; i++) w += g.doors[i].w; return w; }
+function span(s, g) { const d0 = g.doors[s.b], d1 = g.doors[s.a]; return { x0: d0.z0, x1: d1.z1, cross: d0.pi !== d1.pi }; }
+function doorsW(s, g) { let w = 0; for (let i = s.a; i <= s.b; i++) w += g.doors[i].z1 - g.doors[i].z0; return w; }
 function crossings(s, g) { return g.doors[s.b].pi - g.doors[s.a].pi; }
 function netW(s, g) { return doorsW(s, g) - PT; }
 function railLen(s, g) { const c = crossings(s, g); return c ? doorsW(s, g) + c * S.depth : netW(s, g); }
+// عرض ما يُسحب من الخانة: بابٌ واحد يحدّه عرضُ فتحته
+function openW(s, g) { return s.a === s.b ? Math.min(netW(s, g), g.doors[s.a].w - 4) : netW(s, g); }
+// مدى الأبواب خلف جانبٍ من خانة الزاوية: R أبواب الجزء الأيمن، L أبواب الجزء الأيسر
+function sideRange(s, g, side) {
+  const pi = side === 'R' ? g.doors[s.a].pi : g.doors[s.b].pi;
+  let x0 = Infinity, x1 = -Infinity;
+  for (let i = s.a; i <= s.b; i++) if (g.doors[i].pi === pi) { x0 = Math.min(x0, g.doors[i].x0); x1 = Math.max(x1, g.doors[i].x1); }
+  return { x0, x1, w: x1 - x0 };
+}
+function sideDoors(s, g, side) {
+  const pi = side === 'R' ? g.doors[s.a].pi : g.doors[s.b].pi, out = [];
+  for (let i = s.a; i <= s.b; i++) if (g.doors[i].pi === pi) out.push(i + 1);
+  return out;
+}
 function layout(s, g) {
-  let fixed = 0, fi = -1;
-  s.items.forEach((x, i) => { if (x.f && fi < 0) fi = i; else fixed += x.h; });
-  const rem = g.inner - fixed;
-  let z = g.z0; const rows = [];
-  s.items.forEach((x, i) => {
-    const h = i === fi ? Math.max(TYPES[x.t].min, rem) : x.h;
-    rows.push({ x, i, za: z, zb: z + h, h }); z += h;
-  });
-  return { rows, used: z - g.z0, free: g.z1 - z, over: Math.max(0, z - g.z1) };
+  const cross = g.doors[s.a].pi !== g.doors[s.b].pi;
+  const sideOf = (x) => (cross && (x.side === 'R' || x.side === 'L')) ? x.side : null;
+  const fi = s.items.findIndex((x) => x.f);
+  const run = (fh) => {
+    let zR = g.z0, zL = g.z0; const rows = [];
+    s.items.forEach((x, i) => {
+      const h = i === fi ? fh : x.h, sd2 = sideOf(x);
+      if (sd2 === 'R') { rows.push({ x, i, za: zR, zb: zR + h, h, side: 'R' }); zR += h; }
+      else if (sd2 === 'L') { rows.push({ x, i, za: zL, zb: zL + h, h, side: 'L' }); zL += h; }
+      else { const z = Math.max(zR, zL); rows.push({ x, i, za: z, zb: z + h, h, side: null }); zR = zL = z + h; }
+    });
+    return { rows, top: Math.max(zR, zL) };
+  };
+  let r = run(0);
+  if (fi >= 0) r = run(Math.max(TYPES[s.items[fi].t].min, g.z1 - r.top));
+  return { rows: r.rows, used: r.top - g.z0, free: g.z1 - r.top, over: Math.max(0, r.top - g.z1) };
 }
 function doorLabel(s) { return s.a === s.b ? `الباب ${s.a + 1}` : `الأبواب ${s.a + 1}–${s.b + 1}`; }
 const r1 = (v) => (Math.round(v * 10) / 10).toString();
@@ -171,15 +206,15 @@ function stats(st) {
   const g = geo(st);
   let rail = 0, pulls = 0, dr = 0, shoes = 0, socks = 0, shelves = 0, over = 0;
   for (const s of st.secs) {
-    const w = netW(s, g), dw = doorsW(s, g);
+    const dw = doorsW(s, g);
     const L = layout(s, g); if (L.over > 0.5) over++;
-    for (const { x } of L.rows) {
-      const t = x.t;
+    for (const { x, side } of L.rows) {
+      const t = x.t, w = side ? sideRange(s, g, side).w - 4 : openW(s, g);
       if (TYPES[t].hang) rail += railLen(s, g);
       else if (t === 'pull') { pulls++; rail += Math.min(60, st.depth - 20); }
       else if (t === 'drawer') dr++;
       else if (t === 'shoe') shoes += Math.floor(w / 15) * 3;
-      else if (t === 'shoeshelf') shoes += Math.floor((crossings(s, g) ? dw + st.depth : w) / 15) * (x.h >= 30 ? 2 : 1);
+      else if (t === 'shoeshelf') shoes += Math.floor((crossings(s, g) && !side ? dw + st.depth : w) / 15) * (x.h >= 30 ? 2 : 1);
       else if (t === 'socks') socks += Math.floor(w / 9) * 6;
       else if (t === 'shelves') shelves += (x.k || 1);
     }
@@ -410,10 +445,11 @@ function drawWardrobe(ctx, o, st) {
     st.secs.forEach((sct, si) => {
       const sp = span(sct, g), L = layout(sct, g);
       for (const row of L.rows) {
-        if (row.za >= g.z1) break;
+        if (row.za >= g.z1) continue;
         const cl = Math.min(row.zb, g.z1);
-        ctx.save(); ctx.beginPath(); ctx.rect(X(sp.x0), Y(cl), (sp.x1 - sp.x0) * s, (cl - row.za) * s); ctx.clip();
-        drawItem(ctx, row, sp.x0, sp.x1, X, Y, s, { fs, heights: o.heights });
+        const rx = row.side ? sideRange(sct, g, row.side) : sp;
+        ctx.save(); ctx.beginPath(); ctx.rect(X(rx.x0), Y(cl), (rx.x1 - rx.x0) * s, (cl - row.za) * s); ctx.clip();
+        drawItem(ctx, row, rx.x0, rx.x1, X, Y, s, { fs, heights: o.heights });
         ctx.restore();
       }
       if (L.over > 0.5) {
@@ -447,12 +483,23 @@ function drawWardrobe(ctx, o, st) {
     for (let i = 0; i < st.secs.length - 1; i++) {
       const a = st.secs[i], b = st.secs[i + 1];
       if (g.doors[a.b].pi !== g.doors[b.a].pi) continue;
-      const x = g.doors[a.b].x0, t = Math.max(1.5, PT * s);
+      const x = g.doors[a.b].z0, t = Math.max(1.5, PT * s);
       box(ctx, X(x) - t / 2, Y(H), t, (H - st.plinth) * s, WOOD, 'rgba(23,52,58,.6)', 0.6);
     }
   } else {
-    // الأبواب مغلقة
+    // الأبواب مغلقة — والحشوات الثابتة مظلّلة
     const hz = Math.min(100, (g.zt - st.plinth) * 0.45 + st.plinth);
+    for (const p of g.parts) {
+      for (const [f0, f1] of [[p.x0, p.x0 + p.fl], [p.x1 - p.fr, p.x1]]) {
+        if (f1 - f0 < 0.5) continue;
+        for (const [za, zb] of [[st.plinth, g.zt], [g.zt, H]]) {
+          if (zb - za < 1 || (za === g.zt && !(st.loft > 0))) continue;
+          box(ctx, X(f0) + 0.5, Y(zb) + 1, (f1 - f0) * s - 1, (zb - za) * s - 2, '#EDE5D6', INK, Math.max(0.6, s * 0.2), 1);
+          hatch(ctx, X(f0) + 0.5, Y(zb) + 1, (f1 - f0) * s - 1, (zb - za) * s - 2, 'rgba(23,52,58,.25)', Math.max(3, s * 1.5));
+        }
+        if (o.dims !== false && (f1 - f0) * s > 9) label(ctx, r1(f1 - f0), X((f0 + f1) / 2), Y((st.plinth + g.zt) / 2), (f1 - f0) * s, 14, Math.max(8, fs * 0.7), 700, ACC);
+      }
+    }
     st.secs.forEach((sct) => {
       const n = sct.b - sct.a + 1;
       for (let i = sct.a; i <= sct.b; i++) {
@@ -507,7 +554,7 @@ function drawWardrobe(ctx, o, st) {
     });
     g.parts.forEach((p) => {
       const P = st.parts[p.pi];
-      label(ctx, `${P.name} · ${P.w} سم · ${P.n} أبواب`, X((p.x0 + p.x1) / 2), fy + Math.max(20, fs * 1.9), (p.x1 - p.x0) * s, Math.max(18, fs * 1.2), Math.max(10, fs * 0.95), 700, INK);
+      label(ctx, `${P.name} · جدار ${P.w} · ${P.n === 1 ? 'باب' : P.n === 2 ? 'بابان' : P.n + ' أبواب'} ${P.dw}`, X((p.x0 + p.x1) / 2), fy + Math.max(20, fs * 1.9), (p.x1 - p.x0) * s, Math.max(18, fs * 1.2), Math.max(10, fs * 0.95), 700, INK);
     });
   }
   // مقياس الارتفاع
@@ -582,7 +629,8 @@ function renderPanel() {
   if (sc.items.some((x) => TYPES[x.t].hang) && w < 45 && !sp.cross) warn.push('الخانة أضيق من علّاقة الطفل (45 سم): ادمجها مع جارتها أو استعمل «علّاقة سحب».');
   const topD = L.rows.filter((r) => ['drawer', 'socks', 'shoe'].includes(r.x.t)).reduce((m, r) => Math.max(m, r.zb), 0);
   if (topD > 110) warn.push(`أعلى درج على ${Math.round(topD)} سم: الأفضل للطفل ألا يتجاوز 100–110.`);
-  if (sp.cross) warn.push('خانة ركن: الأدراج لا تمرّ عبر الركن، فاجعل فيها تعليقاً طويلاً أو رفوفاً.');
+  if (sp.cross) warn.push('خانة الزاوية مفتوحة من الداخل: اجعل الأدراج «خلف الباب» من زرّي كل عنصر، والتعليق الطويل أو الرفوف «مشتركاً» فوقها.');
+  const sdR = sp.cross ? sideDoors(sc, g, 'R').join(' و') : '', sdL = sp.cross ? sideDoors(sc, g, 'L').join(' و') : '';
   const items = L.rows.slice().reverse().map((r) => {
     const x = r.x, T = TYPES[x.t], i = r.i;
     const isOver = r.zb > g.z1 + 0.5;
@@ -594,12 +642,13 @@ function renderPanel() {
         ${x.f ? `<span>يملأ المتبقي (${r1(r.h)} سم)</span>` : `<span>الارتفاع</span><span class="step"><button data-a="h-">−</button><input data-a="h" type="number" inputmode="numeric" value="${r1(x.h)}"><button data-a="h+">+</button></span>`}
         ${x.t === 'shelves' ? `<span>رفوف</span><span class="step"><button data-a="k-">−</button><input data-a="k" type="number" inputmode="numeric" value="${x.k || 1}"><button data-a="k+">+</button></span>` : ''}
         <label class="chk"><input type="checkbox" data-a="fill" ${x.f ? 'checked' : ''}>تلقائي</label>
+        ${sp.cross ? `<span class="sides"><button data-a="side" data-v="" class="${!x.side ? 'on' : ''}">مشترك</button><button data-a="side" data-v="R" class="${x.side === 'R' ? 'on' : ''}">خلف ${sdR}</button><button data-a="side" data-v="L" class="${x.side === 'L' ? 'on' : ''}">خلف ${sdL}</button></span>` : ''}
         <span class="mv"><button data-a="up" aria-label="أعلى">▲</button><button data-a="down" aria-label="أسفل">▼</button></span>
       </div></li>`;
   }).join('');
   P.innerHTML = `
     <div class="ph"><div><b>${doorLabel(sc)}${sp.cross ? ' · ركن' : ''}</b>
-      <span class="meta">عرض ${r1(doorsW(sc, g))} سم (صافي ≈${sp.cross ? Math.round(railLen(sc, g)) + ' على شكل L' : r1(w)}) · الارتفاع الداخلي ${r1(g.inner)}</span></div>
+      <span class="meta">${sp.cross ? `زاوية مفتوحة · تعليق L ≈${Math.round(railLen(sc, g))} سم` : `داخلها ≈${r1(w)} سم · فتحة الباب ${r1(g.doors[sc.a].w)}`} · الارتفاع الداخلي ${r1(g.inner)}</span></div>
       <span class="cap${L.over > 0.5 ? ' bad' : ''}">${capTxt}</span></div>
     <div class="acts">
       <button data-a="mergeR" ${canR ? '' : 'disabled'}>دمج مع اليمين ▶</button>
@@ -652,6 +701,8 @@ function addItem(t) {
   snap();
   const sc = S.secs[sel], x = it(t);
   if (t === 'shelves') x.k = 2;
+  const g0 = geo();
+  if (g0.doors[sc.a].pi !== g0.doors[sc.b].pi && ['drawer', 'socks', 'shoe', 'toys', 'hamper', 'bin'].includes(t)) x.side = 'L';
   const fi = sc.items.findIndex((y) => y.f);
   if (fi >= 0) sc.items.splice(fi, 0, x); else sc.items.push(x);
   const L = layout(sc, geo());
@@ -677,6 +728,7 @@ $('#panel').addEventListener('click', (e) => {
     case 'up': if (i < sc.items.length - 1) { snap(); [sc.items[i], sc.items[i + 1]] = [sc.items[i + 1], sc.items[i]]; refresh(); } return;
     case 'down': if (i > 0) { snap(); [sc.items[i], sc.items[i - 1]] = [sc.items[i - 1], sc.items[i]]; refresh(); } return;
     case 'h-': case 'h+': snap(); x.f = 0; x.h = Math.max(TYPES[x.t].min, Math.round((x.h + (a === 'h+' ? 1 : -1) * (x.h >= 40 ? 5 : 1)))); refresh(); return;
+    case 'side': snap(); if (b.dataset.v) x.side = b.dataset.v; else delete x.side; refresh(); return;
     case 'k-': case 'k+': snap(); x.k = Math.max(1, Math.min(12, (x.k || 1) + (a === 'k+' ? 1 : -1))); refresh(); return;
   }
 });
@@ -723,44 +775,68 @@ document.querySelectorAll('.sheet').forEach((s) => s.addEventListener('click', (
 
 // الأبعاد
 let draft = null;
+function partInfo(st, i) {
+  const f = partFill(st, i);
+  if (f.left < -0.5) return `<b style="color:#B2401C">الأبواب (${st.parts[i].n} × ${st.parts[i].dw}) أعرض من الواجهة ${r1(f.front)}</b>`;
+  const bits = [];
+  if (f.cL || f.cR) bits.push(`حشوة ${r1(f.cL ? f.l : f.r)} عند الزاوية`);
+  const wallF = f.cL && f.cR ? 0 : (f.cL ? f.r : f.cR ? f.l : f.l + f.r);
+  if (wallF > 0.4) bits.push(f.cL || f.cR ? `وحشوة ${r1(wallF)} عند الجدار` : `حشوتان ${r1(wallF / 2)} عند الطرفين`);
+  return `الواجهة ${r1(f.front)} سم${bits.length ? ' · ' + bits.join(' ') : ''}`;
+}
 function renderSetup() {
   $('#fName').value = draft.name; $('#fH').value = draft.H; $('#fD').value = draft.depth; $('#fPl').value = draft.plinth; $('#fLoft').value = draft.loft;
   $('#fCorner').checked = !!draft.corner;
   $('#partsList').innerHTML = draft.parts.map((p, i) => `
-    <div class="part" data-i="${i}">
+    <div class="part p3" data-i="${i}">
       <div class="pn"><input data-k="name" value="${esc(p.name)}" aria-label="اسم الجزء">${draft.parts.length > 1 ? '<button data-k="rm">حذف</button>' : ''}</div>
-      <label class="fld"><span>الطول</span><input data-k="w" type="number" inputmode="numeric" value="${p.w}"></label>
+      <label class="fld"><span>الطول على الجدار</span><input data-k="w" type="number" inputmode="numeric" value="${p.w}"></label>
       <label class="fld"><span>عدد الأبواب</span><input data-k="n" type="number" inputmode="numeric" value="${p.n}"></label>
-      <div class="dw">عرض الباب ≈ ${r1(p.w / p.n)} سم</div>
+      <label class="fld"><span>عرض الباب</span><input data-k="dw" type="number" inputmode="numeric" value="${p.dw}"></label>
+      <div class="dw">${partInfo(draft, i)}</div>
     </div>`).join('');
   $('#schemes').innerHTML = SCHEMES.map((c, i) => `<button data-sc="${i}" class="${i === draft.scheme ? 'on' : ''}"><span class="sw2"><i style="background:${c.c1}"></i><i style="background:${c.c2}"></i><i style="background:${c.lf}"></i></span>${c.n}</button>`).join('');
 }
+function refreshPartInfo() {
+  draft.corner = $('#fCorner').checked; draft.depth = parseFloat($('#fD').value) || draft.depth;
+  document.querySelectorAll('#partsList .part').forEach((el) => { el.querySelector('.dw').innerHTML = partInfo(draft, +el.dataset.i); });
+}
+$('#fCorner').addEventListener('change', refreshPartInfo);
+$('#fD').addEventListener('input', refreshPartInfo);
 $('#btnSetup').onclick = () => { draft = JSON.parse(JSON.stringify(S)); renderSetup(); openSheet('#sheetSetup'); };
 $('#partsList').addEventListener('input', (e) => {
   const el = e.target, i = +el.closest('.part').dataset.i, k = el.dataset.k; if (!k) return;
   if (k === 'name') draft.parts[i].name = el.value.slice(0, 24);
-  else { draft.parts[i][k] = parseFloat(el.value) || 0; el.closest('.part').querySelector('.dw').textContent = `عرض الباب ≈ ${r1(draft.parts[i].w / Math.max(1, draft.parts[i].n))} سم`; }
+  else { draft.parts[i][k] = parseFloat(el.value) || 0; refreshPartInfo(); }
 });
 $('#partsList').addEventListener('click', (e) => {
   const b = e.target.closest('[data-k="rm"]'); if (!b) return;
   draft.parts.splice(+b.closest('.part').dataset.i, 1); renderSetup();
 });
-$('#addPart').onclick = () => { draft.parts.push({ name: `الجزء ${['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس'][draft.parts.length] || draft.parts.length + 1}`, w: 100, n: 2 }); renderSetup(); };
+$('#addPart').onclick = () => { draft.parts.push({ name: `الجزء ${['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس'][draft.parts.length] || draft.parts.length + 1}`, w: 100, n: 2, dw: 50 }); renderSetup(); };
 $('#schemes').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; draft.scheme = +b.dataset.sc; renderSetup(); });
 $('#applySetup').onclick = () => {
   const num = (id, lo, hi, def) => { const v = parseFloat($(id).value); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
   draft.name = ($('#fName').value || 'دولاب').slice(0, 40);
   draft.H = num('#fH', 120, 330, 280); draft.depth = num('#fD', 30, 120, 60); draft.plinth = num('#fPl', 0, 25, 10); draft.loft = num('#fLoft', 0, 120, 0);
   draft.corner = $('#fCorner').checked;
-  for (const p of draft.parts) {
-    p.w = Math.max(30, Math.min(600, p.w || 100)); p.n = Math.max(1, Math.min(12, Math.round(p.n || 1)));
-    if (p.w / p.n < 20) { toast(`أبواب «${p.name}» أضيق من 20 سم`); return; }
+  for (const [i, p] of draft.parts.entries()) {
+    p.w = Math.max(30, Math.min(600, p.w || 100)); p.n = Math.max(1, Math.min(12, Math.round(p.n || 1))); p.dw = Math.max(20, Math.min(120, p.dw || 50));
+    if (partFill(draft, i).left < -0.5) { toast(`أبواب «${p.name}» أعرض من واجهته — قلّل العدد أو العرض`); return; }
   }
   if (draft.H - draft.plinth - draft.loft < 60) { toast('الجسم أقصر من 60 سم — راجع القاعدة والسندرة'); return; }
-  const same = draft.parts.length === S.parts.length && draft.parts.every((p, i) => p.n === S.parts[i].n);
+  const same = draft.parts.length === S.parts.length && draft.parts.every((p, i) => p.n === S.parts[i].n) && !!draft.corner === !!S.corner;
   if (!same) {
     if (!confirm('تغيّر عدد الأبواب، وسيُعاد تقسيم الخانات من جديد (فارغة). متابعة؟')) return;
     draft.secs = singles(draft);
+    if (draft.corner && draft.parts.length > 1) {   // الزاوية مفتوحة من الداخل: يُدمج البابان حولها
+      let i0 = 0;
+      for (let pi = 0; pi < draft.parts.length - 1; pi++) {
+        i0 += draft.parts[pi].n;
+        const k = draft.secs.findIndex((x) => x.a === i0 - 1);
+        if (k >= 0 && draft.secs[k + 1]) draft.secs.splice(k, 2, sec(i0 - 1, draft.secs[k + 1].b, []));
+      }
+    }
   }
   snap(); S = normalize(draft); sel = Math.min(sel, S.secs.length - 1); zoom = 1;
   closeSheet($('#sheetSetup')); refresh(); toast('طُبّقت الأبعاد');
@@ -798,14 +874,25 @@ function sectionRows(st) {
     const names = [];
     let run = 0;
     const flush = () => { if (run) names.push(run === 1 ? 'درج' : run === 2 ? 'درجان' : `${run} أدراج`); run = 0; };
-    L.rows.forEach(({ x, h }) => {
-      if (x.t === 'drawer' && !x.l) { run++; return; }
-      flush();
-      if (x.t === 'gap') return;
-      const T = TYPES[x.t];
-      names.push((x.l || T.n) + (x.t === 'shelves' ? ` (${x.k || 1})` : '') + (T.hang ? ` ${Math.round(h)}` : ''));
-    });
-    flush();
+    const desc = (rows) => {
+      const out = []; run = 0;
+      const fl = () => { if (run) out.push(run === 1 ? 'درج' : run === 2 ? 'درجان' : `${run} أدراج`); run = 0; };
+      rows.forEach(({ x, h }) => {
+        if (x.t === 'drawer' && !x.l) { run++; return; }
+        fl();
+        if (x.t === 'gap') return;
+        const T = TYPES[x.t];
+        out.push((x.l || T.n) + (x.t === 'shelves' ? ` (${x.k || 1})` : '') + (T.hang ? ` ${Math.round(h)}` : ''));
+      });
+      fl(); return out.join(' · ');
+    };
+    if (span(sc, g).cross && L.rows.some((r) => r.side)) {
+      for (const [sd2, lab] of [['L', `خلف ${sideDoors(sc, g, 'L').join(' و')}`], ['R', `خلف ${sideDoors(sc, g, 'R').join(' و')}`], [null, 'مشترك']]) {
+        const rr2 = L.rows.filter((r) => (r.side || null) === sd2);
+        if (rr2.length) names.push(`${lab}: ${desc(rr2)}`);
+      }
+    } else names.push(desc(L.rows));
+    void flush;
     return { d: doorLabel(sc).replace('الأبواب ', '').replace('الباب ', ''), w: span(sc, g).cross ? `L ≈${Math.round(railLen(sc, g))}` : r1(netW(sc, g)), c: names.join(' · ') || '—', over: L.over > 0.5 };
   });
 }
@@ -881,7 +968,7 @@ function renderPNG() {
   c.width = W; c.height = Math.ceil(Ht);
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#FFFDF8'; ctx.fillRect(0, 0, W, c.height);
-  drawHeader(ctx, W, S.name, `${S.parts.map((p) => `${p.name} ${p.w} سم (${p.n} أبواب)`).join(' + ')} · ارتفاع ${S.H} · عمق ${S.depth}`, pad);
+  drawHeader(ctx, W, S.name, `${S.parts.map((p) => `${p.name} جدار ${p.w} (${p.n} × ${p.dw})`).join(' + ')} · ارتفاع ${S.H} · عمق ${S.depth}`, pad);
   let y = pad * 2.6 + 30;
   sectionTitle(ctx, 'التقسيم الداخلي', W - pad, y, pad); y += 26;
   drawWardrobe(ctx, { ox: pad + 60, oy: y + 30, s, view: 'in', numbers: true, dims: true, scale: true, fs: 19, heights: true });
@@ -912,7 +999,7 @@ function renderPDFPages() {
   {
     const c = document.createElement('canvas'); c.width = W; c.height = Hp; const ctx = c.getContext('2d');
     ctx.fillStyle = '#FFFDF8'; ctx.fillRect(0, 0, W, Hp);
-    drawHeader(ctx, W, S.name + ' — التقسيم الداخلي', `${S.parts.map((p) => `${p.name} ${p.w} سم (${p.n} أبواب)`).join(' + ')} · ارتفاع ${S.H} · عمق ${S.depth} · الأبعاد بالسنتيمتر`, pad);
+    drawHeader(ctx, W, S.name + ' — التقسيم الداخلي', `${S.parts.map((p) => `${p.name} جدار ${p.w} (${p.n} × ${p.dw})`).join(' + ')} · ارتفاع ${S.H} · عمق ${S.depth} · الأبعاد بالسنتيمتر`, pad);
     const side = 440, top = pad * 2.6 + 40, avW = W - side - pad * 3 - 70, avH = Hp - top - 150;
     const s = Math.min(avW / g.totalW, avH / S.H);
     drawWardrobe(ctx, { ox: pad + 70 + (avW - g.totalW * s) / 2, oy: top + 30, s, view: 'in', numbers: true, dims: true, scale: true, fs: 18, heights: true });
