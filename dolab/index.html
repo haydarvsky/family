@@ -2,101 +2,116 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#17343A">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#FFFFFF">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="مخطط الدولاب">
 <meta name="description" content="صمّم التقسيم الداخلي لدولابك من الجوال: أدراج وعلّاقات ورفوف ودرج جوتي وجواريب، ثم احفظه صورة أو PDF.">
 <title>مخطط الدولاب</title>
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
+<div class="app" id="app">
 
-<header class="top">
-  <div class="brand">
-    <b>مخطط الدولاب</b>
-    <span id="dimsLabel">—</span>
-  </div>
-  <div class="tbtns">
-    <button id="btnUndo" class="ic" aria-label="تراجع" title="تراجع">↶</button>
-    <button id="btnSetup">الأبعاد</button>
-    <button id="btnPresets">قوالب</button>
-    <button id="btnExport" class="pri">حفظ</button>
-  </div>
-</header>
+  <header class="hd">
+    <div class="ttl">
+      <b id="dName">مخطط الدولاب</b>
+      <span id="dDims">—</span>
+    </div>
+    <div class="vseg" id="viewSeg"><button data-v="in" class="on">الداخل</button><button data-v="doors">الأبواب</button></div>
+    <button class="ib" id="bUndo" aria-label="تراجع" disabled>
+      <svg viewBox="0 0 24 24"><path d="M9 7H4V2M4.5 7A8 8 0 1 1 4 13"/></svg>
+    </button>
+    <button class="ib" id="bRedo" aria-label="إعادة" disabled>
+      <svg viewBox="0 0 24 24"><path d="M15 7h5V2M19.5 7A8 8 0 1 0 20 13"/></svg>
+    </button>
+  </header>
 
-<div class="stickybox">
-  <div class="bar">
-    <div class="seg" id="viewSeg">
-      <button data-v="in" class="on">الداخل</button>
-      <button data-v="doors">الأبواب</button>
+  <main class="view" id="view">
+    <canvas id="cv"></canvas>
+    <div class="hint" id="hint">اضغط على أي خانة لتبدأ التقسيم</div>
+    <div class="facts" id="facts"></div>
+  </main>
+
+  <nav class="dock" id="dock">
+    <button data-open="mDims">
+      <svg viewBox="0 0 24 24"><path d="M3 17 17 3l4 4L7 21H3z"/><path d="m14 6 4 4M10 10l2 2M7 13l2 2"/></svg>
+      <span>القياسات</span>
+    </button>
+    <button data-open="mPresets">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>أفكار جاهزة</span>
+    </button>
+    <button data-open="mColors">
+      <svg viewBox="0 0 24 24"><rect x="4" y="3" width="7" height="18" rx="1.5"/><rect x="13" y="3" width="7" height="18" rx="1.5"/><path d="M9 12h.01M15 12h.01"/></svg>
+      <span>الأبواب</span>
+    </button>
+    <button data-open="mSave" class="pri">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v3h16v-3"/></svg>
+      <span>حفظ</span>
+    </button>
+  </nav>
+
+  <section class="tray" id="tray" hidden>
+    <div class="tray-hd">
+      <button class="ib" id="tPrev" aria-label="الخانة السابقة"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+      <div class="tray-ttl"><b id="tTitle">—</b><span id="tSub"></span></div>
+      <button class="ib" id="tNext" aria-label="الخانة التالية"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+      <button class="ib close" id="tClose" aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
-    <div class="zoom">
-      <button id="zOut" aria-label="تصغير">−</button>
-      <button id="zFit">ملاءمة</button>
-      <button id="zIn" aria-label="تكبير">+</button>
+    <div class="tabs" id="tTabs">
+      <button data-t="add">أضف قطعة</button>
+      <button data-t="items">القطع <i id="tCount"></i></button>
+      <button data-t="sec">الخانة</button>
     </div>
-  </div>
-  <div class="stage" id="stage"><canvas id="cv"></canvas></div>
-  <div class="stats" id="stats"></div>
+    <div class="tray-body" id="tBody"></div>
+  </section>
 </div>
 
-<section class="panel" id="panel"></section>
-
-<!-- الأبعاد -->
-<div class="sheet" id="sheetSetup" aria-hidden="true">
-  <div class="sheet-card">
-    <div class="sh-head"><b>أبعاد الدولاب</b><button class="x" data-close>✕</button></div>
-    <div class="sh-body">
-      <label class="fld"><span>اسم التصميم</span><input id="fName" type="text" maxlength="40"></label>
-      <h4>الأجزاء <small>(من اليمين إلى اليسار)</small></h4>
-      <div id="partsList"></div>
-      <button class="ghost wide" id="addPart">＋ إضافة جزء</button>
-      <label class="tog"><input type="checkbox" id="fCorner"><span>الأجزاء تلتقي على ركن (زاوية L)</span></label>
-      <div class="grid2">
-        <label class="fld"><span>الارتفاع الكلي</span><input id="fH" type="number" inputmode="numeric"></label>
-        <label class="fld"><span>العمق</span><input id="fD" type="number" inputmode="numeric"></label>
-        <label class="fld"><span>القاعدة</span><input id="fPl" type="number" inputmode="numeric"></label>
-        <label class="fld"><span>السندرة <small>(0 = بلا)</small></span><input id="fLoft" type="number" inputmode="numeric"></label>
-      </div>
-      <h4>لون الأبواب</h4>
-      <div class="schemes" id="schemes"></div>
-      <p class="note">الأبعاد بالسنتيمتر. تغيير عدد الأبواب يعيد تقسيم الخانات من جديد.</p>
-    </div>
-    <div class="sh-foot"><button class="pri wide" id="applySetup">تطبيق</button></div>
+<!-- الأوراق المنبثقة -->
+<div class="modal" id="mDims" aria-hidden="true">
+  <div class="msheet">
+    <div class="grab"></div>
+    <div class="mhd"><b>القياسات</b><button class="ib" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="mbody" id="dimsBody"></div>
+    <div class="mfoot"><button class="btn pri wide big" id="dimsApply">تطبيق</button></div>
   </div>
 </div>
-
-<!-- القوالب -->
-<div class="sheet" id="sheetPresets" aria-hidden="true">
-  <div class="sheet-card">
-    <div class="sh-head"><b>قوالب جاهزة</b><button class="x" data-close>✕</button></div>
-    <div class="sh-body" id="presetList"></div>
+<div class="modal" id="mPresets" aria-hidden="true">
+  <div class="msheet">
+    <div class="grab"></div>
+    <div class="mhd"><b>أفكار جاهزة</b><button class="ib" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="mbody" id="presetsBody"></div>
   </div>
 </div>
-
-<!-- الحفظ -->
-<div class="sheet" id="sheetExport" aria-hidden="true">
-  <div class="sheet-card">
-    <div class="sh-head"><b>حفظ ومشاركة</b><button class="x" data-close>✕</button></div>
-    <div class="sh-body">
-      <div class="prev"><img id="expPrev" alt="معاينة"></div>
-      <div class="exp-btns">
-        <button class="pri wide" id="expPng" disabled>🖼️ حفظ صورة</button>
-        <button class="pri wide alt" id="expPdf" disabled>📄 حفظ PDF</button>
-        <button class="ghost wide" id="expLink">🔗 نسخ رابط التصميم</button>
-      </div>
-      <p class="note">في الآيفون: تظهر قائمة المشاركة، فاختر «حفظ الصورة» أو «حفظ في الملفات». رابط التصميم يفتح التقسيم نفسه على أي جهاز.</p>
-      <button class="danger wide" id="btnReset">بدء تصميم فارغ</button>
+<div class="modal" id="mColors" aria-hidden="true">
+  <div class="msheet">
+    <div class="grab"></div>
+    <div class="mhd"><b>لون الأبواب والمقابض</b><button class="ib" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="mbody" id="colorsBody"></div>
+  </div>
+</div>
+<div class="modal" id="mSave" aria-hidden="true">
+  <div class="msheet">
+    <div class="grab"></div>
+    <div class="mhd"><b>حفظ ومشاركة</b><button class="ib" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="mbody">
+      <div class="prev"><img id="expPrev" alt="معاينة التقسيم"></div>
+      <button class="btn pri wide big" id="expPng" disabled>حفظ صورة</button>
+      <button class="btn dark wide big" id="expPdf" disabled>حفظ PDF</button>
+      <button class="btn ghost wide" id="expLink">نسخ رابط التصميم</button>
+      <p class="note">في الآيفون تظهر قائمة المشاركة: اختر «حفظ الصورة» أو «حفظ في الملفات». ورابط التصميم يفتح التقسيم نفسه على أي جهاز.</p>
+      <button class="btn danger wide" id="bReset">إفراغ كل الخانات</button>
     </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="app.js?v=4"></script>
+<script src="core.js?v=6"></script>
+<script src="ui.js?v=6"></script>
 </body>
 </html>

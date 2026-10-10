@@ -1,4 +1,4 @@
-/* مخطط الدولاب — تقسيم داخلي تفاعلي يُصدَّر صورةً وPDF */
+/* مخطط الدولاب — المحرّك: البيانات والهندسة والرسم والتصدير (بلا واجهة) */
 'use strict';
 
 const VER = 4;
@@ -91,11 +91,8 @@ const PRESETS = [
 ];
 
 // ───── الحالة ─────
-let S, sel = 0, view = 'in', zoom = 1, clip = null;
-const undo = [];
+let S;
 const $ = (q) => document.querySelector(q);
-const cv = $('#cv');
-const stage = $('#stage');
 
 function singles(st) {
   const n = st.parts.reduce((a, p) => a + p.n, 0);
@@ -115,14 +112,6 @@ function normalize(st) {
   st.secs.sort((x, y) => x.a - y.a);
   return st;
 }
-function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
-function snap() { undo.push(JSON.stringify(S)); if (undo.length > 60) undo.shift(); $('#btnUndo').disabled = false; }
-function doUndo() {
-  if (!undo.length) return;
-  S = JSON.parse(undo.pop()); sel = Math.min(sel, S.secs.length - 1);
-  $('#btnUndo').disabled = !undo.length; refresh(true); toast('تراجعتُ خطوة');
-}
-function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200); }
 
 // ───── الهندسة ─────
 // طول كل جزء مقيسٌ على الجدار؛ وفي الزاوية يشترك الجزآن في مربعٍ بعمق الدولاب، فالواجهة = الطول − العمق.
@@ -569,304 +558,7 @@ function drawWardrobe(ctx, o, st) {
   S = prev;
 }
 
-// ───── الشاشة ─────
-const M = { l: 40, r: 12, t: 34, b: 54 };
-let curS = 1;
-function stageMax() { return window.innerWidth >= 900 ? window.innerHeight - 190 : Math.min(window.innerHeight * 0.42, 420); }
-function fitScale() {
-  const g = geo();
-  const sw = stage.clientWidth - 4, sh = stageMax() - 4;
-  return Math.max(0.4, Math.min((sw - M.l - M.r) / g.totalW, (sh - M.t - M.b) / S.H));
-}
-function draw() {
-  const g = geo();
-  curS = fitScale() * zoom;
-  const s = curS;
-  const w = Math.ceil(M.l + g.totalW * s + M.r), h = Math.ceil(M.t + S.H * s + M.b);
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
-  cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px';
-  stage.style.height = (zoom === 1 ? Math.min(h + 4, stageMax()) : stageMax()) + 'px';
-  document.documentElement.style.setProperty('--stick', (document.querySelector('.top').offsetHeight + document.querySelector('.stickybox').offsetHeight) + 'px');
-  const ctx = cv.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#FFFDF8'; ctx.fillRect(0, 0, w, h);
-  drawWardrobe(ctx, { ox: M.l, oy: M.t, s, view, sel, numbers: true, dims: true, scale: true });
-}
-function hitTest(ev) {
-  const r = cv.getBoundingClientRect();
-  const px = ev.clientX - r.left, py = ev.clientY - r.top;
-  const x = (px - M.l) / curS, z = S.H - (py - M.t) / curS;
-  if (z < -5 || z > S.H + 30) return -1;
-  const g = geo();
-  for (let i = 0; i < S.secs.length; i++) { const sp = span(S.secs[i], g); if (x >= sp.x0 && x <= sp.x1) return i; }
-  return -1;
-}
-
-function renderStats() {
-  const t = stats();
-  const it2 = (v, l) => `<span class="stat"><b>${v}</b>${l}</span>`;
-  $('#stats').innerHTML = it2(r1(t.rail), 'م تعليق') + it2(t.dr, 'أدراج') + it2(t.shoes, 'زوج جوتي') + it2(t.socks, 'زوج جواريب')
-    + it2(t.secs, 'خانات') + (t.over ? `<span class="stat" style="border-color:#E2876A"><b style="color:#B2401C">${t.over}</b>خانة زائدة الارتفاع</span>` : '');
-  const g = geo();
-  $('#dimsLabel').textContent = `${S.name} · ${S.parts.map((p) => p.w).join(' + ')} × ${S.H} × ${S.depth} سم`;
-  document.title = `${S.name} — مخطط الدولاب`;
-  void g;
-}
-
-function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-
-function renderPanel() {
-  const P = $('#panel');
-  const g = geo(), sc = S.secs[sel];
-  if (!sc) { P.innerHTML = '<p class="empty">اختر خانة من الرسم</p>'; return; }
-  const L = layout(sc, g), sp = span(sc, g);
-  const w = netW(sc, g);
-  const capTxt = L.over > 0.5 ? `زيادة ${r1(L.over)} سم` : `المتبقي ${r1(L.free)} سم`;
-  const prevSec = S.secs[sel - 1], nextSec = S.secs[sel + 1];
-  const canR = prevSec && (g.doors[prevSec.b].pi === g.doors[sc.a].pi || S.corner);
-  const canL = nextSec && (g.doors[sc.b].pi === g.doors[nextSec.a].pi || S.corner);
-  const warn = [];
-  if (sc.items.some((x) => TYPES[x.t].hang) && w < 45 && !sp.cross) warn.push('الخانة أضيق من علّاقة الطفل (45 سم): ادمجها مع جارتها أو استعمل «علّاقة سحب».');
-  const topD = L.rows.filter((r) => ['drawer', 'socks', 'shoe'].includes(r.x.t)).reduce((m, r) => Math.max(m, r.zb), 0);
-  if (topD > 110) warn.push(`أعلى درج على ${Math.round(topD)} سم: الأفضل للطفل ألا يتجاوز 100–110.`);
-  if (sp.cross) warn.push('خانة الزاوية مفتوحة من الداخل: اجعل الأدراج «خلف الباب» من زرّي كل عنصر، والتعليق الطويل أو الرفوف «مشتركاً» فوقها.');
-  const sdR = sp.cross ? sideDoors(sc, g, 'R').join(' و') : '', sdL = sp.cross ? sideDoors(sc, g, 'L').join(' و') : '';
-  const items = L.rows.slice().reverse().map((r) => {
-    const x = r.x, T = TYPES[x.t], i = r.i;
-    const isOver = r.zb > g.z1 + 0.5;
-    return `<li class="it${isOver ? ' over' : ''}" data-i="${i}">
-      <i class="sw" style="background:${T.c === 'transparent' ? 'repeating-linear-gradient(45deg,#fff 0 4px,#eee 4px 8px)' : T.c}"></i>
-      <div class="nm"><input data-a="label" value="${esc(x.l)}" placeholder="${esc(T.n)}" aria-label="اسم العنصر"><small>${Math.round(r.za)}–${Math.round(r.zb)}</small></div>
-      <button class="del" data-a="del" aria-label="حذف">✕</button>
-      <div class="ctl">
-        ${x.f ? `<span>يملأ المتبقي (${r1(r.h)} سم)</span>` : `<span>الارتفاع</span><span class="step"><button data-a="h-">−</button><input data-a="h" type="number" inputmode="numeric" value="${r1(x.h)}"><button data-a="h+">+</button></span>`}
-        ${x.t === 'shelves' ? `<span>رفوف</span><span class="step"><button data-a="k-">−</button><input data-a="k" type="number" inputmode="numeric" value="${x.k || 1}"><button data-a="k+">+</button></span>` : ''}
-        <label class="chk"><input type="checkbox" data-a="fill" ${x.f ? 'checked' : ''}>تلقائي</label>
-        ${sp.cross ? `<span class="sides"><button data-a="side" data-v="" class="${!x.side ? 'on' : ''}">مشترك</button><button data-a="side" data-v="R" class="${x.side === 'R' ? 'on' : ''}">خلف ${sdR}</button><button data-a="side" data-v="L" class="${x.side === 'L' ? 'on' : ''}">خلف ${sdL}</button></span>` : ''}
-        <span class="mv"><button data-a="up" aria-label="أعلى">▲</button><button data-a="down" aria-label="أسفل">▼</button></span>
-      </div></li>`;
-  }).join('');
-  P.innerHTML = `
-    <div class="ph"><div><b>${doorLabel(sc)}${sp.cross ? ' · ركن' : ''}</b>
-      <span class="meta">${sp.cross ? `زاوية مفتوحة · تعليق L ≈${Math.round(railLen(sc, g))} سم` : `داخلها ≈${r1(w)} سم · فتحة الباب ${r1(g.doors[sc.a].w)}`} · الارتفاع الداخلي ${r1(g.inner)}</span></div>
-      <span class="cap${L.over > 0.5 ? ' bad' : ''}">${capTxt}</span></div>
-    <div class="acts">
-      <button data-a="mergeR" ${canR ? '' : 'disabled'}>دمج مع اليمين ▶</button>
-      <button data-a="split" ${sc.a === sc.b ? 'disabled' : ''}>فصل</button>
-      <button data-a="mergeL" ${canL ? '' : 'disabled'}>◀ دمج مع اليسار</button>
-    </div>
-    ${warn.map((m) => `<div class="warn">${m}</div>`).join('')}
-    <h4>تعبئة سريعة</h4>
-    <div class="quick">${QUICK.map((q, i) => `<button data-q="${i}">${q.n}</button>`).join('')}</div>
-    <h4>المحتوى <small>من الأعلى إلى الأسفل</small></h4>
-    ${items ? `<ul class="items">${items}</ul>` : '<p class="empty">الخانة فارغة — أضف عناصر من الأسفل أو اختر تعبئة سريعة</p>'}
-    <h4>أضف عنصراً</h4>
-    <div class="palette">${PALETTE.map((t) => `<button data-add="${t}"><i style="background:${TYPES[t].c === 'transparent' ? '#fff' : TYPES[t].c}"></i>${TYPES[t].n}</button>`).join('')}</div>
-    <div class="row3">
-      <button data-a="copy">نسخ الخانة</button>
-      <button data-a="paste" ${clip ? '' : 'disabled'}>لصق</button>
-      <button data-a="clear" ${sc.items.length ? '' : 'disabled'}>تفريغ</button>
-    </div>
-    ${S.loft > 0 ? `<label class="fld"><span>ملاحظة السندرة فوق هذه الخانة</span><input data-a="loft" value="${esc(sc.loft || '')}" placeholder="مثلاً: موسمي، حقائب سفر"></label>` : ''}`;
-}
-
-function refresh(panel) { draw(); renderStats(); if (panel !== false) renderPanel(); save(); }
-
-// ───── أفعال الخانة ─────
-function merge(dir) {
-  const sc = S.secs[sel], j = dir === 'R' ? sel - 1 : sel + 1, nb = S.secs[j];
-  if (!nb) return;
-  const g = geo();
-  const a = Math.min(sc.a, nb.a), b = Math.max(sc.b, nb.b);
-  if (g.doors[a].pi !== g.doors[b].pi && !S.corner) { toast('لا يمكن دمج جزأين منفصلين'); return; }
-  snap();
-  const items = sc.items.length ? sc.items : nb.items;
-  if (sc.items.length && nb.items.length) toast('اعتُمد محتوى الخانة المحدّدة');
-  const m = { a, b, items, loft: sc.loft || nb.loft || '' };
-  S.secs.splice(Math.min(sel, j), 2, m);
-  sel = Math.min(sel, j);
-  refresh();
-}
-function split() {
-  const sc = S.secs[sel];
-  if (sc.a === sc.b) return;
-  snap();
-  const parts = [];
-  for (let i = sc.a; i <= sc.b; i++) parts.push(sec(i, i, i === sc.a ? sc.items : [], sc.loft));
-  S.secs.splice(sel, 1, ...parts);
-  toast('فُصلت الأبواب؛ المحتوى بقي في الأولى');
-  refresh();
-}
-function addItem(t) {
-  snap();
-  const sc = S.secs[sel], x = it(t);
-  if (t === 'shelves') x.k = 2;
-  const g0 = geo();
-  if (g0.doors[sc.a].pi !== g0.doors[sc.b].pi && ['drawer', 'socks', 'shoe', 'toys', 'hamper', 'bin'].includes(t)) x.side = 'L';
-  const fi = sc.items.findIndex((y) => y.f);
-  if (fi >= 0) sc.items.splice(fi, 0, x); else sc.items.push(x);
-  const L = layout(sc, geo());
-  if (L.over > 0.5) toast(`لا يتّسع: الخانة زائدة ${r1(L.over)} سم — قلّل الارتفاعات`);
-  refresh();
-}
-
-$('#panel').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b) return;
-  const sc = S.secs[sel]; if (!sc) return;
-  if (b.dataset.q != null) { snap(); sc.items = QUICK[+b.dataset.q].items(); refresh(); return; }
-  if (b.dataset.add) { addItem(b.dataset.add); return; }
-  const a = b.dataset.a; if (!a) return;
-  const li = b.closest('.it'), i = li ? +li.dataset.i : -1, x = li ? sc.items[i] : null;
-  switch (a) {
-    case 'mergeR': return merge('R');
-    case 'mergeL': return merge('L');
-    case 'split': return split();
-    case 'copy': clip = JSON.stringify(sc.items); toast('نُسخ محتوى الخانة'); renderPanel(); return;
-    case 'paste': if (!clip) return; snap(); sc.items = JSON.parse(clip); refresh(); toast('لُصق المحتوى'); return;
-    case 'clear': snap(); sc.items = []; refresh(); return;
-    case 'del': snap(); sc.items.splice(i, 1); refresh(); return;
-    case 'up': if (i < sc.items.length - 1) { snap(); [sc.items[i], sc.items[i + 1]] = [sc.items[i + 1], sc.items[i]]; refresh(); } return;
-    case 'down': if (i > 0) { snap(); [sc.items[i], sc.items[i - 1]] = [sc.items[i - 1], sc.items[i]]; refresh(); } return;
-    case 'h-': case 'h+': snap(); x.f = 0; x.h = Math.max(TYPES[x.t].min, Math.round((x.h + (a === 'h+' ? 1 : -1) * (x.h >= 40 ? 5 : 1)))); refresh(); return;
-    case 'side': snap(); if (b.dataset.v) x.side = b.dataset.v; else delete x.side; refresh(); return;
-    case 'k-': case 'k+': snap(); x.k = Math.max(1, Math.min(12, (x.k || 1) + (a === 'k+' ? 1 : -1))); refresh(); return;
-  }
-});
-$('#panel').addEventListener('change', (e) => {
-  const el = e.target, a = el.dataset.a, sc = S.secs[sel]; if (!a || !sc) return;
-  const li = el.closest('.it'), x = li ? sc.items[+li.dataset.i] : null;
-  if (a === 'h') { snap(); const v = parseFloat(el.value); if (v > 0) { x.h = Math.max(TYPES[x.t].min, v); x.f = 0; } refresh(); }
-  else if (a === 'k') { snap(); x.k = Math.max(1, Math.min(12, parseInt(el.value, 10) || 1)); refresh(); }
-  else if (a === 'fill') {
-    snap();
-    if (el.checked) { sc.items.forEach((y) => { y.f = 0; }); x.f = 1; }
-    else { const L = layout(sc, geo()); x.h = Math.round(L.rows.find((r) => r.x === x).h); x.f = 0; }
-    refresh();
-  }
-  else if (a === 'label' || a === 'loft') { save(); }
-});
-$('#panel').addEventListener('input', (e) => {
-  const el = e.target, a = el.dataset.a, sc = S.secs[sel]; if (!sc) return;
-  if (a === 'label') { sc.items[+el.closest('.it').dataset.i].l = el.value.slice(0, 30); draw(); }
-  else if (a === 'loft') { sc.loft = el.value.slice(0, 30); draw(); }
-});
-
-cv.addEventListener('click', (e) => {
-  const i = hitTest(e);
-  if (i >= 0 && i !== sel) { sel = i; draw(); renderPanel(); if (window.innerWidth < 900) $('#panel').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-});
-
-$('#viewSeg').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b) return;
-  view = b.dataset.v; [...$('#viewSeg').children].forEach((x) => x.classList.toggle('on', x === b)); draw();
-});
-$('#zIn').onclick = () => { zoom = Math.min(4, zoom * 1.35); draw(); };
-$('#zOut').onclick = () => { zoom = Math.max(1, zoom / 1.35); draw(); };
-$('#zFit').onclick = () => { zoom = 1; draw(); };
-$('#btnUndo').onclick = doUndo;
-window.addEventListener('resize', () => { clearTimeout(draw._t); draw._t = setTimeout(draw, 120); });
-
-// ───── الأوراق ─────
-function openSheet(id) { const s = $(id); s.classList.add('open'); s.setAttribute('aria-hidden', 'false'); }
-function closeSheet(el) { const s = el.closest ? el.closest('.sheet') : el; s.classList.remove('open'); s.setAttribute('aria-hidden', 'true'); }
-document.querySelectorAll('.sheet').forEach((s) => s.addEventListener('click', (e) => {
-  if (e.target === s || e.target.closest('[data-close]')) closeSheet(s);
-}));
-
-// الأبعاد
-let draft = null;
-function partInfo(st, i) {
-  const f = partFill(st, i);
-  if (f.left < -0.5) return `<b style="color:#B2401C">الأبواب (${st.parts[i].n} × ${st.parts[i].dw}) أعرض من الواجهة ${r1(f.front)}</b>`;
-  const bits = [];
-  if (f.cL || f.cR) bits.push(`حشوة ${r1(f.cL ? f.l : f.r)} عند الزاوية`);
-  const wallF = f.cL && f.cR ? 0 : (f.cL ? f.r : f.cR ? f.l : f.l + f.r);
-  if (wallF > 0.4) bits.push(f.cL || f.cR ? `وحشوة ${r1(wallF)} عند الجدار` : `حشوتان ${r1(wallF / 2)} عند الطرفين`);
-  return `الواجهة ${r1(f.front)} سم${bits.length ? ' · ' + bits.join(' ') : ''}`;
-}
-function renderSetup() {
-  $('#fName').value = draft.name; $('#fH').value = draft.H; $('#fD').value = draft.depth; $('#fPl').value = draft.plinth; $('#fLoft').value = draft.loft;
-  $('#fCorner').checked = !!draft.corner;
-  $('#partsList').innerHTML = draft.parts.map((p, i) => `
-    <div class="part p3" data-i="${i}">
-      <div class="pn"><input data-k="name" value="${esc(p.name)}" aria-label="اسم الجزء">${draft.parts.length > 1 ? '<button data-k="rm">حذف</button>' : ''}</div>
-      <label class="fld"><span>الطول على الجدار</span><input data-k="w" type="number" inputmode="numeric" value="${p.w}"></label>
-      <label class="fld"><span>عدد الأبواب</span><input data-k="n" type="number" inputmode="numeric" value="${p.n}"></label>
-      <label class="fld"><span>عرض الباب</span><input data-k="dw" type="number" inputmode="numeric" value="${p.dw}"></label>
-      <div class="dw">${partInfo(draft, i)}</div>
-    </div>`).join('');
-  $('#schemes').innerHTML = SCHEMES.map((c, i) => `<button data-sc="${i}" class="${i === draft.scheme ? 'on' : ''}"><span class="sw2"><i style="background:${c.c1}"></i><i style="background:${c.c2}"></i><i style="background:${c.lf}"></i></span>${c.n}</button>`).join('');
-}
-function refreshPartInfo() {
-  draft.corner = $('#fCorner').checked; draft.depth = parseFloat($('#fD').value) || draft.depth;
-  document.querySelectorAll('#partsList .part').forEach((el) => { el.querySelector('.dw').innerHTML = partInfo(draft, +el.dataset.i); });
-}
-$('#fCorner').addEventListener('change', refreshPartInfo);
-$('#fD').addEventListener('input', refreshPartInfo);
-$('#btnSetup').onclick = () => { draft = JSON.parse(JSON.stringify(S)); renderSetup(); openSheet('#sheetSetup'); };
-$('#partsList').addEventListener('input', (e) => {
-  const el = e.target, i = +el.closest('.part').dataset.i, k = el.dataset.k; if (!k) return;
-  if (k === 'name') draft.parts[i].name = el.value.slice(0, 24);
-  else { draft.parts[i][k] = parseFloat(el.value) || 0; refreshPartInfo(); }
-});
-$('#partsList').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-k="rm"]'); if (!b) return;
-  draft.parts.splice(+b.closest('.part').dataset.i, 1); renderSetup();
-});
-$('#addPart').onclick = () => { draft.parts.push({ name: `الجزء ${['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس'][draft.parts.length] || draft.parts.length + 1}`, w: 100, n: 2, dw: 50 }); renderSetup(); };
-$('#schemes').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; draft.scheme = +b.dataset.sc; renderSetup(); });
-$('#applySetup').onclick = () => {
-  const num = (id, lo, hi, def) => { const v = parseFloat($(id).value); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
-  draft.name = ($('#fName').value || 'دولاب').slice(0, 40);
-  draft.H = num('#fH', 120, 330, 280); draft.depth = num('#fD', 30, 120, 60); draft.plinth = num('#fPl', 0, 25, 10); draft.loft = num('#fLoft', 0, 120, 0);
-  draft.corner = $('#fCorner').checked;
-  for (const [i, p] of draft.parts.entries()) {
-    p.w = Math.max(30, Math.min(600, p.w || 100)); p.n = Math.max(1, Math.min(12, Math.round(p.n || 1))); p.dw = Math.max(20, Math.min(120, p.dw || 50));
-    if (partFill(draft, i).left < -0.5) { toast(`أبواب «${p.name}» أعرض من واجهته — قلّل العدد أو العرض`); return; }
-  }
-  if (draft.H - draft.plinth - draft.loft < 60) { toast('الجسم أقصر من 60 سم — راجع القاعدة والسندرة'); return; }
-  const same = draft.parts.length === S.parts.length && draft.parts.every((p, i) => p.n === S.parts[i].n) && !!draft.corner === !!S.corner;
-  if (!same) {
-    if (!confirm('تغيّر عدد الأبواب، وسيُعاد تقسيم الخانات من جديد (فارغة). متابعة؟')) return;
-    draft.secs = singles(draft);
-    if (draft.corner && draft.parts.length > 1) {   // الزاوية مفتوحة من الداخل: يُدمج البابان حولها
-      let i0 = 0;
-      for (let pi = 0; pi < draft.parts.length - 1; pi++) {
-        i0 += draft.parts[pi].n;
-        const k = draft.secs.findIndex((x) => x.a === i0 - 1);
-        if (k >= 0 && draft.secs[k + 1]) draft.secs.splice(k, 2, sec(i0 - 1, draft.secs[k + 1].b, []));
-      }
-    }
-  }
-  snap(); S = normalize(draft); sel = Math.min(sel, S.secs.length - 1); zoom = 1;
-  closeSheet($('#sheetSetup')); refresh(); toast('طُبّقت الأبعاد');
-};
-
-// القوالب
-function renderPresets() {
-  let html = '', grp = '';
-  PRESETS.forEach((p, i) => {
-    if (p.g !== grp) { grp = p.g; html += `<p class="psec">${grp}</p>`; }
-    html += `<button class="preset" data-p="${i}"><canvas data-pv="${i}" width="220" height="180"></canvas><div><b>${p.n}</b><span>${p.d}</span></div></button>`;
-  });
-  $('#presetList').innerHTML = html;
-  document.querySelectorAll('[data-pv]').forEach((c) => {
-    const st = normalize(PRESETS[+c.dataset.pv].make()), g = geo(st);
-    const ctx = c.getContext('2d'), s = Math.min(200 / g.totalW, 165 / st.H);
-    ctx.fillStyle = '#FFFDF8'; ctx.fillRect(0, 0, 220, 180);
-    drawWardrobe(ctx, { ox: (220 - g.totalW * s) / 2, oy: 8, s, view: 'in', fs: 7 }, st);
-  });
-}
-$('#btnPresets').onclick = () => { renderPresets(); openSheet('#sheetPresets'); };
-$('#presetList').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-p]'); if (!b) return;
-  if (!confirm('سيحلّ القالب محل التصميم الحالي (يمكنك التراجع بعدها). متابعة؟')) return;
-  snap(); S = normalize(PRESETS[+b.dataset.p].make()); sel = 0; zoom = 1;
-  closeSheet($('#sheetPresets')); refresh(); toast(`طُبّق قالب «${PRESETS[+b.dataset.p].n}»`);
-});
-
 // ───── التصدير ─────
-let expBlobs = {};
 function sectionRows(st) {
   const g = geo(st);
   return st.secs.map((sc) => {
@@ -1069,31 +761,6 @@ function buildPDF(canvases) {
 }
 
 function fileBase() { return (S.name || 'دولاب').replace(/[\\/:*?"<>|]/g, '').trim() || 'دولاب'; }
-async function prepareExport() {
-  $('#expPng').disabled = true; $('#expPdf').disabled = true; expBlobs = {};
-  await document.fonts.ready;
-  await new Promise((r) => setTimeout(r, 30));
-  const png = renderPNG();
-  $('#expPrev').src = png.toDataURL('image/jpeg', 0.7);
-  png.toBlob((b) => { expBlobs.png = b; $('#expPng').disabled = false; }, 'image/png');
-  setTimeout(() => { expBlobs.pdf = buildPDF(renderPDFPages()); $('#expPdf').disabled = false; }, 40);
-}
-function deliver(blob, name) {
-  if (!blob) return;
-  const file = new File([blob], name, { type: blob.type });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: name }).catch((e) => { if (e && e.name !== 'AbortError') download(blob, name); });
-  } else download(blob, name);
-}
-function download(blob, name) {
-  const u = URL.createObjectURL(blob), a = document.createElement('a');
-  a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(u), 5000);
-  toast('بدأ التنزيل');
-}
-$('#btnExport').onclick = () => { openSheet('#sheetExport'); prepareExport(); };
-$('#expPng').onclick = () => deliver(expBlobs.png, fileBase() + '.png');
-$('#expPdf').onclick = () => deliver(expBlobs.pdf, fileBase() + '.pdf');
 
 // رابط المشاركة
 function encodeState() {
@@ -1106,28 +773,3 @@ function decodeState(h) {
   let b = m[1].replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '=';
   return JSON.parse(decodeURIComponent(escape(atob(b))));
 }
-$('#expLink').onclick = async () => {
-  const url = encodeState();
-  try { await navigator.clipboard.writeText(url); toast('نُسخ الرابط — أرسله لمن تشاء'); }
-  catch (e) { if (navigator.share) navigator.share({ url, title: S.name }).catch(() => {}); else prompt('انسخ الرابط:', url); }
-};
-$('#btnReset').onclick = () => {
-  if (!confirm('بدء تصميم فارغ بالأبعاد نفسها؟ (يمكنك التراجع)')) return;
-  snap(); S.secs = singles(S); sel = 0; closeSheet($('#sheetExport')); refresh(); toast('الخانات فارغة الآن');
-};
-
-// ───── البدء ─────
-function load() {
-  try {
-    const fromHash = decodeState(location.hash);
-    if (fromHash && fromHash.parts) { history.replaceState(null, '', location.pathname); toast('فُتح التصميم من الرابط'); return normalize(fromHash); }
-  } catch (e) { console.warn(e); }
-  try { const j = JSON.parse(localStorage.getItem(LS_KEY)); if (j && j.parts && j.secs) return normalize(j); } catch (e) {}
-  return normalize(PRESETS[0].make());
-}
-S = load();
-sel = Math.min(1, S.secs.length - 1);
-$('#btnUndo').disabled = true;
-refresh();
-const ff = [new FontFace('Sakkal', "url('fonts/sakkal-400.woff2')", { weight: '400' }), new FontFace('Sakkal', "url('fonts/sakkal-700.woff2')", { weight: '700' })];
-Promise.all(ff.map((f) => f.load().then((x) => document.fonts.add(x)).catch(() => {}))).then(() => draw());
