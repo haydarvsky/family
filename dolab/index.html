@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17343A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="مخطط الدولاب">
+<meta name="description" content="صمّم التقسيم الداخلي لدولابك من الجوال: أدراج وعلّاقات ورفوف ودرج جوتي وجواريب، ثم احفظه صورة أو PDF.">
+<title>مخطط الدولاب</title>
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <b>مخطط الدولاب</b>
+    <span id="dimsLabel">—</span>
+  </div>
+  <div class="tbtns">
+    <button id="btnUndo" class="ic" aria-label="تراجع" title="تراجع">↶</button>
+    <button id="btnSetup">الأبعاد</button>
+    <button id="btnPresets">قوالب</button>
+    <button id="btnExport" class="pri">حفظ</button>
+  </div>
+</header>
+
+<div class="stickybox">
+  <div class="bar">
+    <div class="seg" id="viewSeg">
+      <button data-v="in" class="on">الداخل</button>
+      <button data-v="doors">الأبواب</button>
+    </div>
+    <div class="zoom">
+      <button id="zOut" aria-label="تصغير">−</button>
+      <button id="zFit">ملاءمة</button>
+      <button id="zIn" aria-label="تكبير">+</button>
+    </div>
+  </div>
+  <div class="stage" id="stage"><canvas id="cv"></canvas></div>
+  <div class="stats" id="stats"></div>
+</div>
+
+<section class="panel" id="panel"></section>
+
+<!-- الأبعاد -->
+<div class="sheet" id="sheetSetup" aria-hidden="true">
+  <div class="sheet-card">
+    <div class="sh-head"><b>أبعاد الدولاب</b><button class="x" data-close>✕</button></div>
+    <div class="sh-body">
+      <label class="fld"><span>اسم التصميم</span><input id="fName" type="text" maxlength="40"></label>
+      <h4>الأجزاء <small>(من اليمين إلى اليسار)</small></h4>
+      <div id="partsList"></div>
+      <button class="ghost wide" id="addPart">＋ إضافة جزء</button>
+      <label class="tog"><input type="checkbox" id="fCorner"><span>الأجزاء تلتقي على ركن (زاوية L)</span></label>
+      <div class="grid2">
+        <label class="fld"><span>الارتفاع الكلي</span><input id="fH" type="number" inputmode="numeric"></label>
+        <label class="fld"><span>العمق</span><input id="fD" type="number" inputmode="numeric"></label>
+        <label class="fld"><span>القاعدة</span><input id="fPl" type="number" inputmode="numeric"></label>
+        <label class="fld"><span>السندرة <small>(0 = بلا)</small></span><input id="fLoft" type="number" inputmode="numeric"></label>
+      </div>
+      <h4>لون الأبواب</h4>
+      <div class="schemes" id="schemes"></div>
+      <p class="note">الأبعاد بالسنتيمتر. تغيير عدد الأبواب يعيد تقسيم الخانات من جديد.</p>
+    </div>
+    <div class="sh-foot"><button class="pri wide" id="applySetup">تطبيق</button></div>
+  </div>
+</div>
+
+<!-- القوالب -->
+<div class="sheet" id="sheetPresets" aria-hidden="true">
+  <div class="sheet-card">
+    <div class="sh-head"><b>قوالب جاهزة</b><button class="x" data-close>✕</button></div>
+    <div class="sh-body" id="presetList"></div>
+  </div>
+</div>
+
+<!-- الحفظ -->
+<div class="sheet" id="sheetExport" aria-hidden="true">
+  <div class="sheet-card">
+    <div class="sh-head"><b>حفظ ومشاركة</b><button class="x" data-close>✕</button></div>
+    <div class="sh-body">
+      <div class="prev"><img id="expPrev" alt="معاينة"></div>
+      <div class="exp-btns">
+        <button class="pri wide" id="expPng" disabled>🖼️ حفظ صورة</button>
+        <button class="pri wide alt" id="expPdf" disabled>📄 حفظ PDF</button>
+        <button class="ghost wide" id="expLink">🔗 نسخ رابط التصميم</button>
+      </div>
+      <p class="note">في الآيفون: تظهر قائمة المشاركة، فاختر «حفظ الصورة» أو «حفظ في الملفات». رابط التصميم يفتح التقسيم نفسه على أي جهاز.</p>
+      <button class="danger wide" id="btnReset">بدء تصميم فارغ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js?v=1"></script>
+</body>
+</html>
